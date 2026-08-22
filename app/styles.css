@@ -177,12 +177,15 @@ main {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: var(--space-3);
+  padding: 0;
+  overflow: hidden;
   text-align: left;
   color: var(--text);
   cursor: pointer;
   transition: border-color 0.15s ease, transform 0.15s ease, background 0.15s ease;
   font-family: inherit;
+  display: flex;
+  flex-direction: column;
 }
 
 .discipline-card:hover,
@@ -193,15 +196,45 @@ main {
   outline: none;
 }
 
+.discipline-card-img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  background: var(--surface-raised);
+}
+
+.discipline-card-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.discipline-card-body {
+  padding: var(--space-3);
+}
+
 .discipline-card h2 {
   color: var(--text);
   margin-bottom: var(--space-1);
+  font-size: 1.05rem;
 }
 
 .discipline-card p {
   color: var(--text-muted);
   margin: 0;
-  font-size: 0.92rem;
+  font-size: 0.88rem;
+}
+
+.assessment-hero {
+  width: 100%;
+  max-width: 320px;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: var(--radius);
+  margin-bottom: var(--space-2);
+  display: block;
+  background: var(--surface-raised);
 }
 
 /* Back button */
@@ -331,13 +364,51 @@ main {
   margin-bottom: var(--space-2);
 }
 
+.week-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.week-nav-btn {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  width: 2.4rem;
+  height: 2.4rem;
+  border-radius: 50%;
+  font-size: 1.3rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: inherit;
+}
+
+.week-nav-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.week-nav-btn:disabled { opacity: 0.3; cursor: default; }
+
+.week-indicator {
+  font-weight: 700;
+  color: var(--text);
+  min-width: 9rem;
+  text-align: center;
+  font-size: 0.95rem;
+}
+
 .week-card {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: var(--space-3);
   margin-bottom: var(--space-3);
+  display: none;
 }
+
+.week-card.active-week { display: block; }
 
 .week-card.deload { border-color: var(--text-muted); }
 .week-card.test-week { border-color: var(--success); }
@@ -380,26 +451,81 @@ main {
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  padding: 0.7rem 0.9rem;
+  padding: 0.6rem 0.7rem;
   font-size: 0.92rem;
 }
 
-.day-block li strong { color: var(--text); }
+.day-block li strong { color: var(--text); font-size: 0.94rem; }
+
+.ex-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+}
+
+.ex-thumb {
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: var(--surface-raised);
+}
+
+.ex-body { flex: 1; min-width: 0; }
+
+.ex-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.ex-measure {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+
+.ex-info-btn {
+  flex-shrink: 0;
+  width: 1.7rem;
+  height: 1.7rem;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-style: italic;
+  font-family: Georgia, serif;
+  cursor: pointer;
+}
+
+.ex-info-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+.day-block li.notes-open .ex-info-btn {
+  background: var(--accent);
+  color: #14171c;
+  border-color: var(--accent);
+}
 
 .ex-tag {
   display: block;
   color: var(--success);
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   font-weight: 600;
   margin-top: 0.3rem;
 }
 
 .ex-notes {
-  display: block;
+  display: none;
   color: var(--text-muted);
   font-size: 0.82rem;
-  margin-top: 0.3rem;
+  margin: 0.4rem 0 0 calc(44px + 0.6rem);
 }
+
+.day-block li.notes-open .ex-notes { display: block; }
 
 .plan-actions {
   display: flex;
@@ -433,7 +559,9 @@ main {
   .site-header, .site-footer, .no-print { display: none !important; }
   .step { display: none !important; }
   #step-plan { display: block !important; }
-  .week-card { break-inside: avoid; border-color: #ccc; background: #fff; }
+  .week-card { display: block !important; break-inside: avoid; border-color: #ccc; background: #fff; }
   .day-block li { background: #fff; border-color: #ccc; }
   .level-badge { border-color: #999; color: #000; }
+  .ex-notes { display: block !important; margin-left: 0; }
+  .ex-thumb, .ex-info-btn { display: none !important; }
 }

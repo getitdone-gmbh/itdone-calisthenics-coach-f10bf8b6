@@ -415,6 +415,39 @@ const DISCIPLINES = {
   }
 };
 
+const IMAGES = {
+  muscleup: 'assets/muscleup.jpg',
+  handstand: 'assets/handstand.jpg',
+  frontlever: 'assets/frontlever.jpg',
+  planche: 'assets/planche.jpg',
+  pistol: 'assets/pistol.jpg',
+  pullup: 'assets/pullup.jpg',
+  dip: 'assets/dip.jpg',
+  pushup: 'assets/pushup.jpg',
+  hollow: 'assets/hollow.jpg',
+  mobility: 'assets/mobility.jpg'
+};
+
+const EXERCISE_CATEGORY_RULES = [
+  ['muscleup', ['muscle up', 'muscle-up']],
+  ['handstand', ['handstand', 'wall-walk', 'kick-up', 'krähenstand', 'frog stand', 'one-arm', 'gewicht verlagern', 'pirouette']],
+  ['frontlever', ['front lever', 'ice cream maker', 'skin-the-cat', 'german hang']],
+  ['planche', ['planche', 'maltese']],
+  ['pistol', ['pistol', 'split squat', 'shrimp', 'kniebeuge', 'deadlift', 'nordic', 'stand-balance', 'wadenheben', 'knöchel', 'sprunggelenk']],
+  ['dip', ['dip', 'support halten']],
+  ['pullup', ['klimmzug', 'klimmzüge', 'hängen', 'archer', 'row', 'lat-aktivierung', 'snow angel', 'band-pull', 'schulterstabilität']],
+  ['pushup', ['liegestütz', 'scapula']],
+  ['hollow', ['hollow', 'l-sit', 'dragon flag', 'plank', 'core']]
+];
+
+function categoryForExercise(name) {
+  const n = name.toLowerCase();
+  for (const [cat, keywords] of EXERCISE_CATEGORY_RULES) {
+    if (keywords.some(k => n.includes(k))) return cat;
+  }
+  return 'mobility';
+}
+
 const FREQ_OPTIONS = [
   { value: 2, label: '2× pro Woche' },
   { value: 3, label: '3× pro Woche' },
@@ -448,7 +481,7 @@ function renderDisciplineGrid() {
     const card = document.createElement('button');
     card.type = 'button';
     card.className = 'discipline-card';
-    card.innerHTML = `<h2>${d.name}</h2><p>${d.short}</p>`;
+    card.innerHTML = `<div class="discipline-card-img"><img src="${IMAGES[key] || ''}" alt="" loading="lazy"></div><div class="discipline-card-body"><h2>${d.name}</h2><p>${d.short}</p></div>`;
     card.addEventListener('click', () => selectDiscipline(key));
     grid.appendChild(card);
   });
@@ -467,6 +500,9 @@ function renderAssessment() {
   const d = DISCIPLINES[state.disciplineKey];
   document.getElementById('assessmentTitle').textContent = d.name;
   document.getElementById('assessmentIntro').textContent = d.intro;
+  const heroImg = document.getElementById('assessmentImage');
+  heroImg.src = IMAGES[state.disciplineKey] || '';
+  heroImg.alt = d.name;
 
   const form = document.getElementById('assessmentForm');
   form.innerHTML = '';
@@ -646,9 +682,20 @@ function renderPlanData(data) {
       day.exercises.forEach(ex => {
         const li = document.createElement('li');
         const measure = ex.isHold ? `${ex.value} Sek. Halten` : `${ex.value} Wdh.`;
-        li.innerHTML = `<strong>${ex.name}</strong> — ${ex.sets} Sätze × ${measure}` +
-          (ex.tag ? `<span class="ex-tag">${ex.tag}</span>` : '') +
-          `<span class="ex-notes">${ex.notes}</span>`;
+        const cat = categoryForExercise(ex.name);
+        li.innerHTML = `
+          <div class="ex-row">
+            <img class="ex-thumb" src="${IMAGES[cat]}" alt="" loading="lazy">
+            <div class="ex-body">
+              <div class="ex-top">
+                <strong>${ex.name}</strong>
+                <span class="ex-measure">${ex.sets} × ${measure}</span>
+              </div>
+              ${ex.tag ? `<span class="ex-tag">${ex.tag}</span>` : ''}
+            </div>
+            <button type="button" class="ex-info-btn" aria-expanded="false" aria-label="Hinweis anzeigen">i</button>
+          </div>
+          <p class="ex-notes">${ex.notes}</p>`;
         list.appendChild(li);
       });
 
@@ -659,6 +706,25 @@ function renderPlanData(data) {
     weekCard.appendChild(dayGrid);
     container.appendChild(weekCard);
   });
+
+  currentWeekIndex = 0;
+  showWeek(0);
+}
+
+// ---------- Wochen-Navigation im Plan ----------
+
+let currentWeekIndex = 0;
+
+function showWeek(idx) {
+  const cards = Array.from(document.querySelectorAll('#planWeeks .week-card'));
+  if (cards.length === 0) return;
+  const clamped = Math.max(0, Math.min(idx, cards.length - 1));
+  cards.forEach((c, i) => c.classList.toggle('active-week', i === clamped));
+  currentWeekIndex = clamped;
+  document.getElementById('weekIndicator').textContent = `Woche ${clamped + 1} von ${cards.length}`;
+  document.getElementById('weekPrevBtn').disabled = clamped === 0;
+  document.getElementById('weekNextBtn').disabled = clamped === cards.length - 1;
+  document.getElementById('planWeekNav').style.display = cards.length > 1 ? '' : 'none';
 }
 
 // ---------- Konto & gespeicherte Pläne ----------
@@ -781,6 +847,22 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('historyNavBtn').addEventListener('click', () => {
     loadHistory();
     goToStep('history');
+  });
+
+  document.getElementById('weekPrevBtn').addEventListener('click', () => {
+    showWeek(currentWeekIndex - 1);
+    document.getElementById('planWeeks').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+  document.getElementById('weekNextBtn').addEventListener('click', () => {
+    showWeek(currentWeekIndex + 1);
+    document.getElementById('planWeeks').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+  document.getElementById('planWeeks').addEventListener('click', (e) => {
+    const btn = e.target.closest('.ex-info-btn');
+    if (!btn) return;
+    const li = btn.closest('li');
+    const open = li.classList.toggle('notes-open');
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
   });
 
   document.getElementById('printPlanBtn').addEventListener('click', () => window.print());
