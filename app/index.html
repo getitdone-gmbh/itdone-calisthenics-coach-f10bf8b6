@@ -9,7 +9,14 @@
 </head>
 <body>
   <header class="site-header">
-    <div class="brand">CalisthenicsCoach</div>
+    <div class="header-top">
+      <div class="brand">CalisthenicsCoach</div>
+      <nav class="user-nav">
+        <span id="userEmail" class="user-email"></span>
+        <button id="historyNavBtn" class="nav-link" type="button">Meine Pläne</button>
+        <a href="/logout" class="nav-link">Abmelden</a>
+      </nav>
+    </div>
     <p class="tagline">Ziel wählen, Form einschätzen, Plan bekommen.</p>
   </header>
 
@@ -28,11 +35,12 @@
     </section>
 
     <section id="step-plan" class="step">
-      <button class="back-btn no-print" data-back="assessment" type="button">← Angaben ändern</button>
+      <button class="back-btn no-print" data-back="assessment" type="button" id="planBackBtn">← Angaben ändern</button>
       <div class="plan-header">
         <h1 id="planTitle"></h1>
         <span class="level-badge" id="planLevelBadge"></span>
         <p class="lead" id="planIntro"></p>
+        <p class="save-status no-print" id="saveStatus"></p>
       </div>
       <div id="planWeeks"></div>
       <div class="plan-actions no-print">
@@ -40,10 +48,17 @@
         <button id="restartBtn" class="ghost-btn" type="button">Neue Disziplin wählen</button>
       </div>
     </section>
+
+    <section id="step-history" class="step">
+      <button class="back-btn" data-back="discipline" type="button">← Neuen Plan erstellen</button>
+      <h1>Deine gespeicherten Pläne</h1>
+      <p class="lead">Hier findest du alle Trainingspläne, die du bisher erstellt hast.</p>
+      <div id="historyList" class="history-list"></div>
+    </section>
   </main>
 
   <footer class="site-footer no-print">
-    <p>CalisthenicsCoach berechnet deinen Plan direkt in deinem Browser – deine Angaben werden nicht gespeichert.</p>
+    <p>CalisthenicsCoach speichert deine Trainingspläne sicher in deinem Konto – nur du kannst sie sehen.</p>
   </footer>
 
   <script src="app.js"></script>
