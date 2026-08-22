@@ -97,6 +97,23 @@ function requireAuthApi(req, res, next) {
   res.status(401).json({ error: 'Nicht angemeldet.' });
 }
 
+app.get('/debug/oidc', async (req, res) => {
+  try {
+    await ensureOidcClient();
+    res.json({ ok: true, issuer: process.env.OIDC_ISSUER, clientId: process.env.OIDC_CLIENT_ID });
+  } catch (err) {
+    res.status(500).json({
+      ok: false,
+      issuer: process.env.OIDC_ISSUER,
+      clientId: process.env.OIDC_CLIENT_ID,
+      errorName: err.name,
+      errorMessage: err.message,
+      errorCode: err.code,
+      stack: (err.stack || '').split('\n').slice(0, 6)
+    });
+  }
+});
+
 app.get('/login', async (req, res) => {
   try {
     const client = await ensureOidcClient();
