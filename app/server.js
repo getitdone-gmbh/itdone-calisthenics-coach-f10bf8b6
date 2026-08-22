@@ -5,6 +5,7 @@ const crypto = require('node:crypto');
 const { Pool } = require('pg');
 const { Issuer, generators } = require('openid-client');
 
+// boot: retry-safe init for db + login
 const PORT = process.env.PORT || 8080;
 const ROOT = __dirname;
 const SESSION_SECRET = crypto.randomBytes(32).toString('hex');
