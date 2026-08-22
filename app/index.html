@@ -29,6 +29,7 @@
 
     <section id="step-assessment" class="step">
       <button class="back-btn" data-back="discipline" type="button">← Andere Disziplin wählen</button>
+      <img id="assessmentImage" class="assessment-hero" alt="">
       <h1 id="assessmentTitle"></h1>
       <p class="lead" id="assessmentIntro"></p>
       <form id="assessmentForm"></form>
@@ -41,6 +42,11 @@
         <span class="level-badge" id="planLevelBadge"></span>
         <p class="lead" id="planIntro"></p>
         <p class="save-status no-print" id="saveStatus"></p>
+      </div>
+      <div class="week-nav no-print" id="planWeekNav">
+        <button type="button" id="weekPrevBtn" class="week-nav-btn" aria-label="Vorherige Woche">‹</button>
+        <span id="weekIndicator" class="week-indicator">Woche 1 von 8</span>
+        <button type="button" id="weekNextBtn" class="week-nav-btn" aria-label="Nächste Woche">›</button>
       </div>
       <div id="planWeeks"></div>
       <div class="plan-actions no-print">
