@@ -76,8 +76,24 @@ function redirectUriFor(req) {
   return `${proto}://${host}/callback`;
 }
 
+const CANONICAL_HOST = `app-${process.env.OIDC_CLIENT_ID}.itdone.cloud`;
+
 const app = express();
 app.set('trust proxy', 1);
+
+// Die Anmeldung (Keycloak) kennt nur die Haupt-Domain als gültige Rücksprungadresse.
+// Besucher, die über eine andere itdone.cloud-Adresse der App kommen, werden dorthin
+// weitergeleitet, damit Login-Session und OIDC-Redirect auf demselben Host laufen.
+app.use((req, res, next) => {
+  const host = req.headers['x-forwarded-host'] || req.get('host') || '';
+  const isPreview = host.includes('.dev.itdone.cloud') || host.includes('-preview-');
+  if (process.env.OIDC_CLIENT_ID && !isPreview && host.endsWith('.itdone.cloud') && host !== CANONICAL_HOST) {
+    const proto = req.headers['x-forwarded-proto'] || req.protocol;
+    return res.redirect(308, `${proto}://${CANONICAL_HOST}${req.originalUrl}`);
+  }
+  next();
+});
+
 app.use(express.json());
 app.use(session({
   secret: SESSION_SECRET,
