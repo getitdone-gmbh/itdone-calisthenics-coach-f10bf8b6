@@ -98,14 +98,20 @@ function requireAuthApi(req, res, next) {
 }
 
 app.get('/debug/oidc', async (req, res) => {
+  const envCheck = {
+    OIDC_ISSUER_present: typeof process.env.OIDC_ISSUER === 'string',
+    OIDC_ISSUER_value: process.env.OIDC_ISSUER || null,
+    OIDC_CLIENT_ID_present: typeof process.env.OIDC_CLIENT_ID === 'string',
+    DATABASE_URL_present: typeof process.env.DATABASE_URL === 'string',
+    allEnvKeys: Object.keys(process.env).filter(k => k.startsWith('OIDC') || k.startsWith('PG') || k === 'DATABASE_URL')
+  };
   try {
     await ensureOidcClient();
-    res.json({ ok: true, issuer: process.env.OIDC_ISSUER, clientId: process.env.OIDC_CLIENT_ID });
+    res.json({ ok: true, env: envCheck, clientId: process.env.OIDC_CLIENT_ID });
   } catch (err) {
     res.status(500).json({
       ok: false,
-      issuer: process.env.OIDC_ISSUER,
-      clientId: process.env.OIDC_CLIENT_ID,
+      env: envCheck,
       errorName: err.name,
       errorMessage: err.message,
       errorCode: err.code,
