@@ -222,20 +222,38 @@ app.delete('/api/results/:id', requireAuthApi, async (req, res) => {
 
 app.use(express.static(ROOT, { index: false }));
 
+async function initDbWithRetry(retries = 8, delayMs = 3000) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      await initDb();
+      return;
+    } catch (err) {
+      console.error(`DB init attempt ${i + 1}/${retries} failed`, err.message);
+      await new Promise(r => setTimeout(r, delayMs));
+    }
+  }
+  console.error('DB init gave up after retries — will keep retrying lazily on first query.');
+}
+
+async function initAuthWithRetry(retries = 8, delayMs = 3000) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      await initAuth();
+      return;
+    } catch (err) {
+      console.error(`OIDC init attempt ${i + 1}/${retries} failed`, err.message);
+      await new Promise(r => setTimeout(r, delayMs));
+    }
+  }
+  console.error('OIDC init gave up after retries — login will keep failing until next restart.');
+}
+
 async function start() {
-  try {
-    await initDb();
-  } catch (err) {
-    console.error('DB init failed', err);
-  }
-  try {
-    await initAuth();
-  } catch (err) {
-    console.error('OIDC init failed', err);
-  }
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`CalisthenicsCoach läuft auf Port ${PORT}`);
   });
+  initDbWithRetry();
+  initAuthWithRetry();
 }
 
 start();
