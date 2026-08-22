@@ -36,6 +36,7 @@ async function initDb() {
 }
 
 let oidcClient = null;
+let oidcInitPromise = null;
 
 async function initAuth() {
   const issuer = await Issuer.discover(process.env.OIDC_ISSUER);
@@ -44,6 +45,29 @@ async function initAuth() {
     response_types: ['code'],
     token_endpoint_auth_method: 'none'
   });
+}
+
+async function ensureOidcClient() {
+  if (oidcClient) return oidcClient;
+  if (!oidcInitPromise) {
+    oidcInitPromise = initAuth().catch(err => {
+      oidcInitPromise = null;
+      throw err;
+    });
+  }
+  await oidcInitPromise;
+  return oidcClient;
+}
+
+let dbInitPromise = null;
+
+async function ensureDb() {
+  if (dbInitPromise) return dbInitPromise;
+  dbInitPromise = initDb().catch(err => {
+    dbInitPromise = null;
+    throw err;
+  });
+  return dbInitPromise;
 }
 
 function redirectUriFor(req) {
@@ -73,16 +97,16 @@ function requireAuthApi(req, res, next) {
   res.status(401).json({ error: 'Nicht angemeldet.' });
 }
 
-app.get('/login', (req, res, next) => {
+app.get('/login', async (req, res) => {
   try {
-    if (!oidcClient) return res.status(503).send('Anmeldung wird gerade vorbereitet, bitte gleich noch einmal versuchen.');
+    const client = await ensureOidcClient();
     const code_verifier = generators.codeVerifier();
     const code_challenge = generators.codeChallenge(code_verifier);
     const state = generators.state();
     req.session.code_verifier = code_verifier;
     req.session.oauth_state = state;
     const redirect_uri = redirectUriFor(req);
-    const url = oidcClient.authorizationUrl({
+    const url = client.authorizationUrl({
       scope: 'openid email profile',
       redirect_uri,
       code_challenge,
@@ -91,20 +115,21 @@ app.get('/login', (req, res, next) => {
     });
     res.redirect(url);
   } catch (err) {
-    next(err);
+    console.error('OIDC not ready for /login', err.message);
+    res.status(503).send('Anmeldung wird gerade vorbereitet, bitte in ein paar Sekunden erneut versuchen.');
   }
 });
 
 app.get('/callback', async (req, res, next) => {
   try {
-    if (!oidcClient) return res.status(503).send('Anmeldung wird gerade vorbereitet, bitte gleich noch einmal versuchen.');
+    const client = await ensureOidcClient();
     const redirect_uri = redirectUriFor(req);
-    const params = oidcClient.callbackParams(req);
-    const tokenSet = await oidcClient.callback(redirect_uri, params, {
+    const params = client.callbackParams(req);
+    const tokenSet = await client.callback(redirect_uri, params, {
       code_verifier: req.session.code_verifier,
       state: req.session.oauth_state
     });
-    const userinfo = await oidcClient.userinfo(tokenSet.access_token);
+    const userinfo = await client.userinfo(tokenSet.access_token);
     req.session.user = {
       sub: userinfo.sub,
       email: userinfo.email || '',
@@ -153,6 +178,7 @@ app.get('/api/me', requireAuthApi, (req, res) => {
 
 app.post('/api/results', requireAuthApi, async (req, res) => {
   try {
+    await ensureDb();
     const b = req.body || {};
     if (!b.disciplineKey || !b.disciplineName || !b.levelKey || !b.weeks || !b.answers) {
       return res.status(400).json({ error: 'Unvollständige Daten.' });
@@ -184,6 +210,7 @@ app.post('/api/results', requireAuthApi, async (req, res) => {
 
 app.get('/api/results', requireAuthApi, async (req, res) => {
   try {
+    await ensureDb();
     const result = await pool.query(
       `SELECT id, discipline_key, discipline_name, level_label, frequency, created_at
        FROM results WHERE user_id = $1 ORDER BY created_at DESC LIMIT 100`,
@@ -198,6 +225,7 @@ app.get('/api/results', requireAuthApi, async (req, res) => {
 
 app.get('/api/results/:id', requireAuthApi, async (req, res) => {
   try {
+    await ensureDb();
     const result = await pool.query(
       `SELECT id, discipline_key, discipline_name, level_key, level_label, level_summary, frequency, answers, weeks, created_at
        FROM results WHERE id = $1 AND user_id = $2`,
@@ -213,6 +241,7 @@ app.get('/api/results/:id', requireAuthApi, async (req, res) => {
 
 app.delete('/api/results/:id', requireAuthApi, async (req, res) => {
   try {
+    await ensureDb();
     await pool.query(`DELETE FROM results WHERE id = $1 AND user_id = $2`, [req.params.id, req.session.user.sub]);
     res.json({ ok: true });
   } catch (err) {
@@ -223,38 +252,15 @@ app.delete('/api/results/:id', requireAuthApi, async (req, res) => {
 
 app.use(express.static(ROOT, { index: false }));
 
-async function initDbWithRetry(retries = 8, delayMs = 3000) {
-  for (let i = 0; i < retries; i++) {
-    try {
-      await initDb();
-      return;
-    } catch (err) {
-      console.error(`DB init attempt ${i + 1}/${retries} failed`, err.message);
-      await new Promise(r => setTimeout(r, delayMs));
-    }
-  }
-  console.error('DB init gave up after retries — will keep retrying lazily on first query.');
-}
-
-async function initAuthWithRetry(retries = 8, delayMs = 3000) {
-  for (let i = 0; i < retries; i++) {
-    try {
-      await initAuth();
-      return;
-    } catch (err) {
-      console.error(`OIDC init attempt ${i + 1}/${retries} failed`, err.message);
-      await new Promise(r => setTimeout(r, delayMs));
-    }
-  }
-  console.error('OIDC init gave up after retries — login will keep failing until next restart.');
-}
-
 async function start() {
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`CalisthenicsCoach läuft auf Port ${PORT}`);
   });
-  initDbWithRetry();
-  initAuthWithRetry();
+  // Best-effort warm-up so the very first real request doesn't pay the connection cost.
+  // If the addons aren't ready yet at boot, ensureDb()/ensureOidcClient() are retried
+  // lazily on the next actual request instead of giving up permanently.
+  ensureDb().catch(err => console.error('DB warm-up failed, will retry on next request:', err.message));
+  ensureOidcClient().catch(err => console.error('OIDC warm-up failed, will retry on next request:', err.message));
 }
 
 start();
